@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.40">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Eddy Yoon">
+<meta name="dcterms.date" content="2025-04-28">
+
+<title>NBA Shot Success Analysis</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="nba-shot-success-analysis_files/libs/clipboard/clipboard.min.js"></script>
+<script src="nba-shot-success-analysis_files/libs/quarto-html/quarto.js"></script>
+<script src="nba-shot-success-analysis_files/libs/quarto-html/popper.min.js"></script>
+<script src="nba-shot-success-analysis_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="nba-shot-success-analysis_files/libs/quarto-html/anchor.min.js"></script>
+<link href="nba-shot-success-analysis_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="nba-shot-success-analysis_files/libs/quarto-html/quarto-syntax-highlighting-549806ee2085284f45b00abea8c6df48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="nba-shot-success-analysis_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="nba-shot-success-analysis_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="nba-shot-success-analysis_files/libs/bootstrap/bootstrap-81e35ebdb4125010edbabe6010586085.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#project-summary" id="toc-project-summary" class="nav-link active" data-scroll-target="#project-summary">Project Summary</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#data" id="toc-data" class="nav-link" data-scroll-target="#data">Data</a></li>
+  <li><a href="#exploratory-data-analysis" id="toc-exploratory-data-analysis" class="nav-link" data-scroll-target="#exploratory-data-analysis">Exploratory Data Analysis</a>
+  <ul class="collapse">
+  <li><a href="#made-shot-frequency" id="toc-made-shot-frequency" class="nav-link" data-scroll-target="#made-shot-frequency">Made-Shot Frequency</a></li>
+  <li><a href="#shot-type-make-rate" id="toc-shot-type-make-rate" class="nav-link" data-scroll-target="#shot-type-make-rate">Shot-Type Make Rate</a></li>
+  <li><a href="#layup-location-filtering" id="toc-layup-location-filtering" class="nav-link" data-scroll-target="#layup-location-filtering">Layup Location Filtering</a></li>
+  <li><a href="#makemiss-distribution" id="toc-makemiss-distribution" class="nav-link" data-scroll-target="#makemiss-distribution">Make/Miss Distribution</a></li>
+  </ul></li>
+  <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a></li>
+  <li><a href="#model-preparation" id="toc-model-preparation" class="nav-link" data-scroll-target="#model-preparation">Model Preparation</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a>
+  <ul class="collapse">
+  <li><a href="#layup-model" id="toc-layup-model" class="nav-link" data-scroll-target="#layup-model">Layup Model</a></li>
+  <li><a href="#jump-shot-model" id="toc-jump-shot-model" class="nav-link" data-scroll-target="#jump-shot-model">Jump-Shot Model</a></li>
+  </ul></li>
+  <li><a href="#discussion" id="toc-discussion" class="nav-link" data-scroll-target="#discussion">Discussion</a></li>
+  <li><a href="#limitations" id="toc-limitations" class="nav-link" data-scroll-target="#limitations">Limitations</a></li>
+  <li><a href="#future-work" id="toc-future-work" class="nav-link" data-scroll-target="#future-work">Future Work</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion">Conclusion</a></li>
+  <li><a href="#reproducibility" id="toc-reproducibility" class="nav-link" data-scroll-target="#reproducibility">Reproducibility</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="nba-shot-success-analysis.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">NBA Shot Success Analysis</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Eddy Yoon </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">April 28, 2025</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">echo =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">warning =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">message =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">cache =</span> <span class="cn">TRUE</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(hoopR)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(knitr)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lme4)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(scales)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<section id="project-summary" class="level1">
+<h1>Project Summary</h1>
+<p>This project analyzes NBA shot success during the 2024–2025 season using play-by-play and player box-score data from the <code>hoopR</code> package. The analysis begins by identifying common made-shot types and comparing make rates across shot categories, then focuses on layups and jump shots as two high-volume shot groups.</p>
+<p>The main modeling goal is to evaluate which player-level and game-context variables are associated with made-shot probability. I compare standard logistic regression models with mixed-effects logistic regression models that include player-level random intercepts to account for repeated shots by the same players.</p>
+</section>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>Shot selection is one of the most important parts of offensive efficiency in basketball. Different shot types have different levels of difficulty, and player ability, shot distance, time remaining, and game context may all influence whether a shot is made.</p>
+<p>This project focuses on two common NBA shot categories: layups and jump shots. Using 2024–2025 NBA play-by-play data, I analyze which variables are associated with shot success and whether accounting for player-level differences improves model fit.</p>
+<p>The main questions are:</p>
+<ol type="1">
+<li>Which shot types account for the most made baskets?</li>
+<li>Which shot types have the highest make rates among commonly attempted shots?</li>
+<li>Which player and game-context variables are associated with layup and jump-shot success?</li>
+<li>Do mixed-effects logistic regression models improve fit compared with standard logistic regression models?</li>
+</ol>
+</section>
+<section id="data" class="level1">
+<h1>Data</h1>
+<p>The analysis uses NBA play-by-play data from the ‘hoopR’ package for the season labeled 2025, corresponding to the 2024–2025 NBA season, including regular season and postseason games. Each row represents an in-game event, including shot attempts, fouls, substitutions, rebounds, and other play-by-play actions.</p>
+<p>Because this project focuses on shot success, I filtered the data to shooting plays only. I then created two broad shot categories based on the play description:</p>
+<ul>
+<li>Layups: plays where <code>type_text</code> contains <code>"Layup"</code></li>
+<li>Jump shots: plays where <code>type_text</code> contains <code>"Jump Shot"</code></li>
+</ul>
+<p>Player box-score data was joined to the shot-level data using game and player identifiers. This added player-level information such as field-goal percentage, three-point percentage, points scored, and starter status.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 2025 refers to the 2024--2025 NBA season in hoopR data conventions.</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>nba_season <span class="ot">&lt;-</span> <span class="dv">2025</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>nba_pbp <span class="ot">&lt;-</span> hoopR<span class="sc">::</span><span class="fu">load_nba_pbp</span>(<span class="at">seasons =</span> nba_season)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>nba_pbp_shooting <span class="ot">&lt;-</span> nba_pbp <span class="sc">%&gt;%</span> </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(shooting_play <span class="sc">==</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>shooting_layup_raw <span class="ot">&lt;-</span> nba_pbp_shooting <span class="sc">%&gt;%</span> </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(type_text, <span class="fu">regex</span>(<span class="st">"Layup"</span>, <span class="at">ignore_case =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>shooting_jumpshot <span class="ot">&lt;-</span> nba_pbp_shooting <span class="sc">%&gt;%</span> </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">str_detect</span>(type_text, <span class="fu">regex</span>(<span class="st">"Jump Shot"</span>, <span class="at">ignore_case =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify season coverage</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>nba_pbp <span class="sc">%&gt;%</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">seasons_loaded =</span> <span class="fu">paste</span>(<span class="fu">sort</span>(<span class="fu">unique</span>(season)), <span class="at">collapse =</span> <span class="st">", "</span>),</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">first_game_date =</span> <span class="fu">min</span>(game_date, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">last_game_date =</span> <span class="fu">max</span>(game_date, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_plays =</span> <span class="fu">n</span>(),</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">total_games =</span> <span class="fu">n_distinct</span>(game_id)</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 5
+  seasons_loaded first_game_date last_game_date total_plays total_games
+  &lt;chr&gt;          &lt;date&gt;          &lt;date&gt;               &lt;int&gt;       &lt;int&gt;
+1 2025           2024-10-22      2025-06-22          571603        1209</code></pre>
+</div>
+</div>
+</section>
+<section id="exploratory-data-analysis" class="level1">
+<h1>Exploratory Data Analysis</h1>
+<section id="made-shot-frequency" class="level2">
+<h2 class="anchored" data-anchor-id="made-shot-frequency">Made-Shot Frequency</h2>
+<p>The first chart shows the most common shot types among made baskets. This does <strong>not</strong> measure efficiency directly; instead, it identifies high-volume scoring outcomes. A shot type can appear often because it is attempted frequently, not necessarily because it has the highest success rate.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>made_shot_counts <span class="ot">&lt;-</span> nba_pbp_shooting <span class="sc">%&gt;%</span> </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(scoring_play <span class="sc">==</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(type_text, <span class="at">sort =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_head</span>(<span class="at">n =</span> <span class="dv">10</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>made_shot_counts <span class="sc">%&gt;%</span> </span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">reorder</span>(type_text, n), <span class="at">y =</span> n)) <span class="sc">+</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="st">"dodgerblue"</span>) <span class="sc">+</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Most Common Made Shot Types"</span>,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Shot Type"</span>,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Made Shots"</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nba-shot-success-analysis_files/figure-html/made-shot-frequency-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Top 10 shot descriptions among made shots in the 2024–2025 NBA play-by-play data. This chart identifies common scoring outcomes and motivates focusing on layups and jump shots for the shot-success models.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="shot-type-make-rate" class="level2">
+<h2 class="anchored" data-anchor-id="shot-type-make-rate">Shot-Type Make Rate</h2>
+<p>Made-shot count captures scoring volume. To compare efficiency, I calculated make rate as made shots divided by total attempts for each shot type. I filtered to shot types with at least 500 attempts to reduce small-sample noise.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>shot_efficiency <span class="ot">&lt;-</span> nba_pbp_shooting <span class="sc">%&gt;%</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(type_text) <span class="sc">%&gt;%</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarize</span>(</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">attempts =</span> <span class="fu">n</span>(),</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">makes =</span> <span class="fu">sum</span>(scoring_play <span class="sc">==</span> <span class="cn">TRUE</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">make_rate =</span> makes <span class="sc">/</span> attempts,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(attempts <span class="sc">&gt;=</span> <span class="dv">500</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(make_rate))</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>shot_efficiency <span class="sc">%&gt;%</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_head</span>(<span class="at">n =</span> <span class="dv">10</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">reorder</span>(type_text, make_rate), <span class="at">y =</span> make_rate)) <span class="sc">+</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="st">"dodgerblue"</span>) <span class="sc">+</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> <span class="fu">percent_format</span>()) <span class="sc">+</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Highest Make Rates by Shot Type"</span>,</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Shot Type"</span>,</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Make Rate"</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nba-shot-success-analysis_files/figure-html/shot-type-efficiency-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Highest make rates among shot types with at least 500 attempts. Make rate is calculated as made shots divided by total attempts.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="layup-location-filtering" class="level2">
+<h2 class="anchored" data-anchor-id="layup-location-filtering">Layup Location Filtering</h2>
+<p>Some plays labeled as layups appeared far from the basket based on their coordinate values. To reduce likely misclassified or unusual layup records, I filtered layup attempts to retain shots located near the basket area in the coordinate system used by the play-by-play data. In this coordinate system, near-basket layups appear near the far left and right ends of the x-axis, so the filter keeps attempts with large absolute x-coordinate values and small y-coordinate values.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>h1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(shooting_layup_raw, <span class="fu">aes</span>(<span class="at">x =</span> coordinate_x, <span class="at">y =</span> coordinate_y)) <span class="sc">+</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bin2d</span>(<span class="at">bins =</span> <span class="dv">14</span>) <span class="sc">+</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Court x-coordinate"</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Court y-coordinate"</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Layup Attempts Before Filtering"</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>shooting_layup <span class="ot">&lt;-</span> shooting_layup_raw <span class="sc">%&gt;%</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">abs</span>(coordinate_x) <span class="sc">&gt;</span> <span class="dv">30</span>, <span class="fu">abs</span>(coordinate_y) <span class="sc">&lt;</span> <span class="fl">7.5</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>h2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(shooting_layup, <span class="fu">aes</span>(<span class="at">x =</span> coordinate_x, <span class="at">y =</span> coordinate_y)) <span class="sc">+</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bin2d</span>(<span class="at">bins =</span> <span class="dv">14</span>) <span class="sc">+</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Court x-coordinate"</span>,</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Court y-coordinate"</span>,</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Layup Attempts After Filtering"</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(h1, h2, <span class="at">ncol =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nba-shot-success-analysis_files/figure-html/layup-location-filter-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Layup shot locations before and after filtering to retain attempts near the basket.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="makemiss-distribution" class="level2">
+<h2 class="anchored" data-anchor-id="makemiss-distribution">Make/Miss Distribution</h2>
+<p>The modeling outcome is whether a shot was made (<code>scoring_play = TRUE</code>) or missed (<code>scoring_play = FALSE</code>). The chart below shows the make/miss distribution for the layup and jump-shot datasets.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>d1 <span class="ot">&lt;-</span> shooting_layup <span class="sc">%&gt;%</span> </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> scoring_play)) <span class="sc">+</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="st">"dodgerblue"</span>) <span class="sc">+</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Layups"</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Made Shot"</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Count"</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>d2 <span class="ot">&lt;-</span> shooting_jumpshot <span class="sc">%&gt;%</span> </span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> scoring_play)) <span class="sc">+</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="st">"dodgerblue"</span>) <span class="sc">+</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Jump Shots"</span>,</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Made Shot"</span>,</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Count"</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(d1, d2, <span class="at">ncol =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nba-shot-success-analysis_files/figure-html/make-miss-distribution-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Distribution of made and missed attempts for layups and jump shots. Layups show a higher make rate, while jump shots have a larger volume of attempts.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="methods" class="level1">
+<h1>Methods</h1>
+<p>The outcome variable for both models is <code>scoring_play</code>, a binary indicator of whether the shot was made. Because the same players take many shots, observations are not fully independent. To account for repeated shots by the same players, I use mixed-effects logistic regression models with player-level random intercepts.</p>
+<p>For each shot type, I compare:</p>
+<ol type="1">
+<li>A standard logistic regression model with fixed effects only.</li>
+<li>A mixed-effects logistic regression model with the same fixed effects plus a player-level random intercept.</li>
+</ol>
+<p>AIC is used to compare relative model fit. Lower AIC indicates a better balance between model fit and model complexity. AIC is useful for comparing models fit to the same outcome and data, but it is not a substitute for out-of-sample validation.</p>
+</section>
+<section id="model-preparation" class="level1">
+<h1>Model Preparation</h1>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>box_scores <span class="ot">&lt;-</span> hoopR<span class="sc">::</span><span class="fu">load_nba_player_box</span>(nba_season)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>box_required_cols <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"game_id"</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"athlete_id"</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"field_goals_made"</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"field_goals_attempted"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"three_point_field_goals_made"</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"three_point_field_goals_attempted"</span>,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">"points"</span>,</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">"starter"</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">all</span>(box_required_cols <span class="sc">%in%</span> <span class="fu">names</span>(box_scores)))</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>box_score_small <span class="ot">&lt;-</span> box_scores <span class="sc">%&gt;%</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>    game_id,</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    athlete_id,</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    minutes,</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    field_goals_made,</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>    field_goals_attempted,</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>    three_point_field_goals_made,</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>    three_point_field_goals_attempted,</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>    points,</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    plus_minus,</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    starter</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>layup_model_data <span class="ot">&lt;-</span> shooting_layup <span class="sc">%&gt;%</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>    box_score_small,</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"game_id"</span> <span class="ot">=</span> <span class="st">"game_id"</span>, <span class="st">"athlete_id_1"</span> <span class="ot">=</span> <span class="st">"athlete_id"</span>)</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">shooting_distance =</span> <span class="fu">sqrt</span>(coordinate_x<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> coordinate_y<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">field_goal_pct =</span> <span class="fu">if_else</span>(field_goals_attempted <span class="sc">&gt;</span> <span class="dv">0</span>, field_goals_made <span class="sc">/</span> field_goals_attempted, <span class="cn">NA_real_</span>),</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">three_point_pct =</span> <span class="fu">if_else</span>(three_point_field_goals_attempted <span class="sc">&gt;</span> <span class="dv">0</span>, three_point_field_goals_made <span class="sc">/</span> three_point_field_goals_attempted, <span class="cn">NA_real_</span>)</span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(</span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>    scoring_play,</span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>    shooting_distance,</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>    start_quarter_seconds_remaining,</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>    starter,</span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>    field_goal_pct,</span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>    points,</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>    period_number,</span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>    athlete_id_1</span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>jumpshot_model_data <span class="ot">&lt;-</span> shooting_jumpshot <span class="sc">%&gt;%</span></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(</span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a>    box_score_small,</span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">by =</span> <span class="fu">c</span>(<span class="st">"game_id"</span> <span class="ot">=</span> <span class="st">"game_id"</span>, <span class="st">"athlete_id_1"</span> <span class="ot">=</span> <span class="st">"athlete_id"</span>)</span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>    <span class="at">shooting_distance =</span> <span class="fu">sqrt</span>(coordinate_x<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> coordinate_y<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>    <span class="at">field_goal_pct =</span> <span class="fu">if_else</span>(field_goals_attempted <span class="sc">&gt;</span> <span class="dv">0</span>, field_goals_made <span class="sc">/</span> field_goals_attempted, <span class="cn">NA_real_</span>),</span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>    <span class="at">three_point_pct =</span> <span class="fu">if_else</span>(three_point_field_goals_attempted <span class="sc">&gt;</span> <span class="dv">0</span>, three_point_field_goals_made <span class="sc">/</span> three_point_field_goals_attempted, <span class="cn">NA_real_</span>)</span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">drop_na</span>(</span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a>    scoring_play,</span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a>    shooting_distance,</span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a>    start_quarter_seconds_remaining,</span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a>    starter,</span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a>    field_goal_pct,</span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a>    three_point_pct,</span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a>    points,</span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a>    period_number,</span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a>    athlete_id_1</span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>create_fixed_effect_table <span class="ot">&lt;-</span> <span class="cf">function</span>(model) {</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summary</span>(model)<span class="sc">$</span>coefficients <span class="sc">%&gt;%</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as.data.frame</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rownames_to_column</span>(<span class="st">"Term"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">rename</span>(</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>      <span class="at">Estimate =</span> Estimate,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>      <span class="at">Std.Error =</span> <span class="st">`</span><span class="at">Std. Error</span><span class="st">`</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>      <span class="at">Z.value =</span> <span class="st">`</span><span class="at">z value</span><span class="st">`</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>      <span class="at">P.value =</span> <span class="st">`</span><span class="at">Pr(&gt;|z|)</span><span class="st">`</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">CI.lower =</span> Estimate <span class="sc">-</span> <span class="fl">1.96</span> <span class="sc">*</span> Std.Error,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>      <span class="at">CI.upper =</span> Estimate <span class="sc">+</span> <span class="fl">1.96</span> <span class="sc">*</span> Std.Error,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">Odds_Ratio =</span> <span class="fu">exp</span>(Estimate),</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">OR_CI_lower =</span> <span class="fu">exp</span>(CI.lower),</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">OR_CI_upper =</span> <span class="fu">exp</span>(CI.upper)</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="results" class="level1">
+<h1>Results</h1>
+<section id="layup-model" class="level2">
+<h2 class="anchored" data-anchor-id="layup-model">Layup Model</h2>
+<p>The layup model uses shooting distance, time remaining in the quarter, starter status, field-goal percentage, points scored, and period number as fixed effects. The mixed-effects model adds a player-level random intercept.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>layup_model_mixed <span class="ot">&lt;-</span> <span class="fu">glmer</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  scoring_play <span class="sc">~</span> <span class="fu">scale</span>(shooting_distance) <span class="sc">+</span> <span class="fu">scale</span>(start_quarter_seconds_remaining) <span class="sc">+</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    starter <span class="sc">+</span> <span class="fu">scale</span>(field_goal_pct) <span class="sc">+</span> <span class="fu">scale</span>(points) <span class="sc">+</span> <span class="fu">factor</span>(period_number) <span class="sc">+</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">1</span> <span class="sc">|</span> athlete_id_1),</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> layup_model_data,</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> binomial,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">glmerControl</span>(<span class="at">optimizer =</span> <span class="st">"bobyqa"</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>layup_model_plain <span class="ot">&lt;-</span> <span class="fu">glm</span>(</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  scoring_play <span class="sc">~</span> <span class="fu">scale</span>(shooting_distance) <span class="sc">+</span> <span class="fu">scale</span>(start_quarter_seconds_remaining) <span class="sc">+</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    starter <span class="sc">+</span> <span class="fu">scale</span>(field_goal_pct) <span class="sc">+</span> <span class="fu">scale</span>(points) <span class="sc">+</span> <span class="fu">factor</span>(period_number),</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> layup_model_data,</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> binomial</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">AIC</span>(layup_model_mixed, layup_model_plain),</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"AIC comparison between the layup mixed-effects logistic regression model and standard logistic regression model"</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>AIC comparison between the layup mixed-effects logistic regression model and standard logistic regression model</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">df</th>
+<th style="text-align: right;">AIC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">layup_model_mixed</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">61943.08</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">layup_model_plain</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">62177.46</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The mixed-effects model has lower AIC than the standard logistic regression model, suggesting that accounting for player-level baseline shooting ability improves relative model fit for layups.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>layup_fe_table <span class="ot">&lt;-</span> <span class="fu">create_fixed_effect_table</span>(layup_model_mixed)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  layup_fe_table,</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">3</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Term"</span>, <span class="st">"Estimate"</span>, <span class="st">"Std. Error"</span>, <span class="st">"Z value"</span>, <span class="st">"P value"</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"CI lower"</span>, <span class="st">"CI upper"</span>, <span class="st">"Odds Ratio"</span>, <span class="st">"OR CI lower"</span>, <span class="st">"OR CI upper"</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"Fixed-effect estimates and odds ratios for the layup mixed-effects model"</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Fixed-effect estimates and odds ratios for the layup mixed-effects model</caption>
+<colgroup>
+<col style="width: 30%">
+<col style="width: 7%">
+<col style="width: 8%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 8%">
+<col style="width: 9%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Term</th>
+<th style="text-align: right;">Estimate</th>
+<th style="text-align: right;">Std. Error</th>
+<th style="text-align: right;">Z value</th>
+<th style="text-align: right;">P value</th>
+<th style="text-align: right;">CI lower</th>
+<th style="text-align: right;">CI upper</th>
+<th style="text-align: right;">Odds Ratio</th>
+<th style="text-align: right;">OR CI lower</th>
+<th style="text-align: right;">OR CI upper</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">0.263</td>
+<td style="text-align: right;">0.031</td>
+<td style="text-align: right;">8.376</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.201</td>
+<td style="text-align: right;">0.325</td>
+<td style="text-align: right;">1.301</td>
+<td style="text-align: right;">1.223</td>
+<td style="text-align: right;">1.383</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">scale(shooting_distance)</td>
+<td style="text-align: right;">0.422</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">41.349</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.402</td>
+<td style="text-align: right;">0.442</td>
+<td style="text-align: right;">1.525</td>
+<td style="text-align: right;">1.495</td>
+<td style="text-align: right;">1.556</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">scale(start_quarter_seconds_remaining)</td>
+<td style="text-align: right;">-0.041</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">-4.128</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">-0.061</td>
+<td style="text-align: right;">-0.022</td>
+<td style="text-align: right;">0.960</td>
+<td style="text-align: right;">0.941</td>
+<td style="text-align: right;">0.979</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">starterTRUE</td>
+<td style="text-align: right;">0.074</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">2.505</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">0.016</td>
+<td style="text-align: right;">0.132</td>
+<td style="text-align: right;">1.077</td>
+<td style="text-align: right;">1.016</td>
+<td style="text-align: right;">1.141</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">scale(field_goal_pct)</td>
+<td style="text-align: right;">0.866</td>
+<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">59.295</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.838</td>
+<td style="text-align: right;">0.895</td>
+<td style="text-align: right;">2.378</td>
+<td style="text-align: right;">2.311</td>
+<td style="text-align: right;">2.447</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">scale(points)</td>
+<td style="text-align: right;">-0.084</td>
+<td style="text-align: right;">0.016</td>
+<td style="text-align: right;">-5.358</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">-0.115</td>
+<td style="text-align: right;">-0.053</td>
+<td style="text-align: right;">0.919</td>
+<td style="text-align: right;">0.891</td>
+<td style="text-align: right;">0.948</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">factor(period_number)2</td>
+<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">0.028</td>
+<td style="text-align: right;">0.556</td>
+<td style="text-align: right;">0.578</td>
+<td style="text-align: right;">-0.039</td>
+<td style="text-align: right;">0.069</td>
+<td style="text-align: right;">1.015</td>
+<td style="text-align: right;">0.962</td>
+<td style="text-align: right;">1.072</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">factor(period_number)3</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: right;">0.028</td>
+<td style="text-align: right;">0.227</td>
+<td style="text-align: right;">0.820</td>
+<td style="text-align: right;">-0.048</td>
+<td style="text-align: right;">0.060</td>
+<td style="text-align: right;">1.006</td>
+<td style="text-align: right;">0.953</td>
+<td style="text-align: right;">1.062</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">factor(period_number)4</td>
+<td style="text-align: right;">0.002</td>
+<td style="text-align: right;">0.028</td>
+<td style="text-align: right;">0.088</td>
+<td style="text-align: right;">0.930</td>
+<td style="text-align: right;">-0.053</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">1.002</td>
+<td style="text-align: right;">0.949</td>
+<td style="text-align: right;">1.059</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">factor(period_number)5</td>
+<td style="text-align: right;">-0.150</td>
+<td style="text-align: right;">0.137</td>
+<td style="text-align: right;">-1.093</td>
+<td style="text-align: right;">0.274</td>
+<td style="text-align: right;">-0.419</td>
+<td style="text-align: right;">0.119</td>
+<td style="text-align: right;">0.861</td>
+<td style="text-align: right;">0.658</td>
+<td style="text-align: right;">1.126</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">factor(period_number)6</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">0.704</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.989</td>
+<td style="text-align: right;">-1.369</td>
+<td style="text-align: right;">1.390</td>
+<td style="text-align: right;">1.010</td>
+<td style="text-align: right;">0.254</td>
+<td style="text-align: right;">4.014</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The fixed-effect estimates show which variables are associated with layup success after accounting for player-level baseline differences. Odds ratios above 1 indicate higher odds of a made layup, while odds ratios below 1 indicate lower odds.</p>
+<p>Shooting distance has a positive association with layup success in the filtered near-basket layup sample. This result should be interpreted carefully. It may reflect the coordinate system, the filtering rule, player selection effects, or differences in how layup attempts are recorded. Because this is observational play-by-play data, the coefficient should be interpreted as an association rather than evidence that longer layups are inherently easier.</p>
+<p>Field-goal percentage is also positively associated with layup success, which is consistent with the idea that more efficient players are more likely to convert shot attempts. Period indicators are less consistent, suggesting that quarter number alone is not the main driver of layup success after accounting for player and context variables.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>layup_random_effects <span class="ot">&lt;-</span> <span class="fu">ranef</span>(layup_model_mixed)<span class="sc">$</span>athlete_id_1 <span class="sc">%&gt;%</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames_to_column</span>(<span class="st">"athlete_id_1"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">Random_Intercept =</span> <span class="st">`</span><span class="at">(Intercept)</span><span class="st">`</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>layup_random_effects <span class="sc">%&gt;%</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> Random_Intercept)) <span class="sc">+</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">30</span>, <span class="at">fill =</span> <span class="st">"darkorange"</span>, <span class="at">color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Player Random Intercepts: Layups"</span>,</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Random Intercept (log-odds adjustment)"</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Number of Players"</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nba-shot-success-analysis_files/figure-html/layup-random-effects-1.png" class="img-fluid figure-img" width="480"></p>
+<figcaption>Distribution of player-level random intercepts from the layup mixed-effects model. Positive values indicate players with higher baseline layup success after accounting for model predictors.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The random-intercept distribution shows that player-level differences remain even after accounting for shooting distance, timing, starter status, field-goal percentage, points, and period number. This supports the use of a mixed-effects model rather than treating every shot attempt as fully independent.</p>
+</section>
+<section id="jump-shot-model" class="level2">
+<h2 class="anchored" data-anchor-id="jump-shot-model">Jump-Shot Model</h2>
+<p>The jump-shot model uses shooting distance, time remaining in the quarter, starter status, field-goal percentage, three-point percentage, points scored, and period number as fixed effects. The mixed-effects model adds a player-level random intercept.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>jumpshot_model_mixed <span class="ot">&lt;-</span> <span class="fu">glmer</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  scoring_play <span class="sc">~</span> <span class="fu">scale</span>(shooting_distance) <span class="sc">+</span> <span class="fu">scale</span>(start_quarter_seconds_remaining) <span class="sc">+</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    starter <span class="sc">+</span> <span class="fu">scale</span>(field_goal_pct) <span class="sc">+</span> <span class="fu">scale</span>(three_point_pct) <span class="sc">+</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale</span>(points) <span class="sc">+</span> <span class="fu">factor</span>(period_number) <span class="sc">+</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">1</span> <span class="sc">|</span> athlete_id_1),</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> jumpshot_model_data,</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> binomial,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">control =</span> <span class="fu">glmerControl</span>(<span class="at">optimizer =</span> <span class="st">"bobyqa"</span>)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>jumpshot_model_plain <span class="ot">&lt;-</span> <span class="fu">glm</span>(</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>  scoring_play <span class="sc">~</span> <span class="fu">scale</span>(shooting_distance) <span class="sc">+</span> <span class="fu">scale</span>(start_quarter_seconds_remaining) <span class="sc">+</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    starter <span class="sc">+</span> <span class="fu">scale</span>(field_goal_pct) <span class="sc">+</span> <span class="fu">scale</span>(three_point_pct) <span class="sc">+</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale</span>(points) <span class="sc">+</span> <span class="fu">factor</span>(period_number),</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> jumpshot_model_data,</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> binomial</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">AIC</span>(jumpshot_model_mixed, jumpshot_model_plain),</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"AIC comparison between the jump-shot mixed-effects logistic regression model and standard logistic regression model"</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>AIC comparison between the jump-shot mixed-effects logistic regression model and standard logistic regression model</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: right;">df</th>
+<th style="text-align: right;">AIC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">jumpshot_model_mixed</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">164446.0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">jumpshot_model_plain</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">164470.4</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>The mixed-effects model has lower AIC than the standard logistic regression model, suggesting that accounting for player-level baseline shooting ability improves relative model fit for jump shots.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>jumpshot_fe_table <span class="ot">&lt;-</span> <span class="fu">create_fixed_effect_table</span>(jumpshot_model_mixed)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  jumpshot_fe_table,</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">digits =</span> <span class="dv">3</span>,</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">col.names =</span> <span class="fu">c</span>(</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Term"</span>, <span class="st">"Estimate"</span>, <span class="st">"Std. Error"</span>, <span class="st">"Z value"</span>, <span class="st">"P value"</span>,</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">"CI lower"</span>, <span class="st">"CI upper"</span>, <span class="st">"Odds Ratio"</span>, <span class="st">"OR CI lower"</span>, <span class="st">"OR CI upper"</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">caption =</span> <span class="st">"Fixed-effect estimates and odds ratios for the jump-shot mixed-effects model"</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Fixed-effect estimates and odds ratios for the jump-shot mixed-effects model</caption>
+<colgroup>
+<col style="width: 30%">
+<col style="width: 7%">
+<col style="width: 8%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 8%">
+<col style="width: 9%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Term</th>
+<th style="text-align: right;">Estimate</th>
+<th style="text-align: right;">Std. Error</th>
+<th style="text-align: right;">Z value</th>
+<th style="text-align: right;">P value</th>
+<th style="text-align: right;">CI lower</th>
+<th style="text-align: right;">CI upper</th>
+<th style="text-align: right;">Odds Ratio</th>
+<th style="text-align: right;">OR CI lower</th>
+<th style="text-align: right;">OR CI upper</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">-0.475</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">-27.633</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">-0.509</td>
+<td style="text-align: right;">-0.442</td>
+<td style="text-align: right;">0.622</td>
+<td style="text-align: right;">0.601</td>
+<td style="text-align: right;">0.643</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">scale(shooting_distance)</td>
+<td style="text-align: right;">0.110</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: right;">18.106</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.098</td>
+<td style="text-align: right;">0.122</td>
+<td style="text-align: right;">1.117</td>
+<td style="text-align: right;">1.103</td>
+<td style="text-align: right;">1.130</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">scale(start_quarter_seconds_remaining)</td>
+<td style="text-align: right;">0.055</td>
+<td style="text-align: right;">0.006</td>
+<td style="text-align: right;">8.986</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.043</td>
+<td style="text-align: right;">0.067</td>
+<td style="text-align: right;">1.056</td>
+<td style="text-align: right;">1.044</td>
+<td style="text-align: right;">1.069</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">starterTRUE</td>
+<td style="text-align: right;">-0.020</td>
+<td style="text-align: right;">0.016</td>
+<td style="text-align: right;">-1.197</td>
+<td style="text-align: right;">0.231</td>
+<td style="text-align: right;">-0.052</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">0.981</td>
+<td style="text-align: right;">0.950</td>
+<td style="text-align: right;">1.013</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">scale(field_goal_pct)</td>
+<td style="text-align: right;">0.513</td>
+<td style="text-align: right;">0.009</td>
+<td style="text-align: right;">56.477</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.495</td>
+<td style="text-align: right;">0.531</td>
+<td style="text-align: right;">1.670</td>
+<td style="text-align: right;">1.641</td>
+<td style="text-align: right;">1.700</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">scale(three_point_pct)</td>
+<td style="text-align: right;">0.353</td>
+<td style="text-align: right;">0.008</td>
+<td style="text-align: right;">46.621</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.338</td>
+<td style="text-align: right;">0.368</td>
+<td style="text-align: right;">1.424</td>
+<td style="text-align: right;">1.403</td>
+<td style="text-align: right;">1.445</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">scale(points)</td>
+<td style="text-align: right;">0.050</td>
+<td style="text-align: right;">0.009</td>
+<td style="text-align: right;">5.799</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.067</td>
+<td style="text-align: right;">1.051</td>
+<td style="text-align: right;">1.033</td>
+<td style="text-align: right;">1.069</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">factor(period_number)2</td>
+<td style="text-align: right;">-0.054</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">-3.256</td>
+<td style="text-align: right;">0.001</td>
+<td style="text-align: right;">-0.087</td>
+<td style="text-align: right;">-0.022</td>
+<td style="text-align: right;">0.947</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">0.979</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">factor(period_number)3</td>
+<td style="text-align: right;">-0.020</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">-1.204</td>
+<td style="text-align: right;">0.229</td>
+<td style="text-align: right;">-0.052</td>
+<td style="text-align: right;">0.013</td>
+<td style="text-align: right;">0.980</td>
+<td style="text-align: right;">0.949</td>
+<td style="text-align: right;">1.013</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">factor(period_number)4</td>
+<td style="text-align: right;">-0.103</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">-6.017</td>
+<td style="text-align: right;">0.000</td>
+<td style="text-align: right;">-0.136</td>
+<td style="text-align: right;">-0.069</td>
+<td style="text-align: right;">0.902</td>
+<td style="text-align: right;">0.873</td>
+<td style="text-align: right;">0.933</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">factor(period_number)5</td>
+<td style="text-align: right;">-0.203</td>
+<td style="text-align: right;">0.085</td>
+<td style="text-align: right;">-2.381</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">-0.370</td>
+<td style="text-align: right;">-0.036</td>
+<td style="text-align: right;">0.816</td>
+<td style="text-align: right;">0.691</td>
+<td style="text-align: right;">0.965</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">factor(period_number)6</td>
+<td style="text-align: right;">0.157</td>
+<td style="text-align: right;">0.389</td>
+<td style="text-align: right;">0.404</td>
+<td style="text-align: right;">0.686</td>
+<td style="text-align: right;">-0.606</td>
+<td style="text-align: right;">0.920</td>
+<td style="text-align: right;">1.170</td>
+<td style="text-align: right;">0.546</td>
+<td style="text-align: right;">2.509</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<p>Several variables are associated with jump-shot success. Player efficiency metrics, including field-goal percentage and three-point percentage, are expected to be important because they capture shooting ability. Game-context variables such as shooting distance, time remaining in the quarter, and period number help describe the quality and context of shot attempts.</p>
+<p>As with the layup model, these estimates should be interpreted as associations rather than causal effects. For example, a positive coefficient for shooting distance does not necessarily mean that longer shots are easier. It may reflect shot selection, openness, player skill, or other unobserved factors that are not included in the model.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>jumpshot_random_effects <span class="ot">&lt;-</span> <span class="fu">ranef</span>(jumpshot_model_mixed)<span class="sc">$</span>athlete_id_1 <span class="sc">%&gt;%</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.data.frame</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames_to_column</span>(<span class="st">"athlete_id_1"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">Random_Intercept =</span> <span class="st">`</span><span class="at">(Intercept)</span><span class="st">`</span>)</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>jumpshot_random_effects <span class="sc">%&gt;%</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> Random_Intercept)) <span class="sc">+</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">30</span>, <span class="at">fill =</span> <span class="st">"darkorange"</span>, <span class="at">color =</span> <span class="st">"white"</span>) <span class="sc">+</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Player Random Intercepts: Jump Shots"</span>,</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Random Intercept (log-odds adjustment)"</span>,</span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Number of Players"</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="nba-shot-success-analysis_files/figure-html/jumpshot-random-effects-1.png" class="img-fluid figure-img" width="480"></p>
+<figcaption>Distribution of player-level random intercepts from the jump-shot mixed-effects model. Positive values indicate players with higher baseline jump-shot success after accounting for model predictors.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>The random-intercept distribution shows that individual players differ in baseline jump-shot success even after accounting for observable predictors. This supports the modeling choice to include player-level random effects.</p>
+</section>
+</section>
+<section id="discussion" class="level1">
+<h1>Discussion</h1>
+<p>The mixed-effects models had lower AIC values than the corresponding standard logistic regression models for both layups and jump shots. This suggests that accounting for player-level baseline shooting ability improves model fit.</p>
+<p>The exploratory analysis also shows why it is important to distinguish between made-shot frequency and make rate. Made-shot frequency captures scoring volume, while make rate provides a simple measure of shot-conversion efficiency. Both are useful, but they answer different questions. This project uses made-shot frequency to identify common scoring outcomes, make rate to compare shot-type efficiency, and logistic mixed-effects modeling to study make probability for layups and jump shots.</p>
+<p>For both shot categories, player efficiency metrics and game-context variables were associated with shot success. The player-level random intercepts suggest that individual shooting ability remains relevant even after controlling for observable shot and context variables.</p>
+<p>These results should be interpreted as associations, not causal effects. The analysis does not prove that changing one predictor would directly cause shot success to increase or decrease. Instead, it identifies patterns in observed NBA play-by-play and box-score data.</p>
+</section>
+<section id="limitations" class="level1">
+<h1>Limitations</h1>
+<ul>
+<li>The model does not include defender proximity, contest level, or defender identity.</li>
+<li>The model does not include shot-clock time, assist status, play type, or possession context.</li>
+<li>Shot categories are broad and combine different subtypes, such as pull-up jumpers, fadeaways, driving layups, and cutting layups.</li>
+<li>The analysis uses one NBA season, so results may not generalize across seasons.</li>
+<li>AIC compares relative model fit but does not measure true out-of-sample predictive performance.</li>
+<li>The analysis is observational, so coefficients should be interpreted as associations rather than causal effects.</li>
+</ul>
+</section>
+<section id="future-work" class="level1">
+<h1>Future Work</h1>
+<p>Future versions of this project could:</p>
+<ul>
+<li>Add train/test evaluation or cross-validation to measure predictive performance.</li>
+<li>Include defender and shot-contest variables if tracking data is available.</li>
+<li>Compare results across multiple NBA seasons.</li>
+<li>Separate jump shots and layups into more specific shot subtypes.</li>
+<li>Build an interactive dashboard showing shot success by player, shot type, and court location.</li>
+</ul>
+</section>
+<section id="conclusion" class="level1">
+<h1>Conclusion</h1>
+<p>This project shows that NBA shot success is shaped by both player-level ability and game-context factors. Mixed-effects logistic regression improved relative model fit for both layups and jump shots, supporting the idea that repeated shots by the same players should not be treated as fully independent. The analysis also highlights the importance of distinguishing between scoring volume and efficiency when evaluating shot types.</p>
+<p>For a basketball operations or analytics setting, this type of model could be extended with tracking data, defender information, shot-clock context, and multi-season data to better evaluate shot quality and player decision-making.</p>
+</section>
+<section id="reproducibility" class="level1">
+<h1>Reproducibility</h1>
+<p>The analysis was rendered using the following R session information.</p>
+<details>
+<summary>
+Show session information
+</summary>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.2 (2024-10-31)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sequoia 15.3
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Los_Angeles
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] scales_1.4.0    lme4_1.1-36     Matrix_1.7-2    knitr_1.49     
+ [5] gridExtra_2.3   lubridate_1.9.4 forcats_1.0.0   stringr_1.5.1  
+ [9] dplyr_1.1.4     purrr_1.1.0     readr_2.1.5     tidyr_1.3.1    
+[13] tibble_3.2.1    ggplot2_4.0.0   tidyverse_2.0.0 hoopR_2.1.0    
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6        xfun_0.53           htmlwidgets_1.6.4  
+ [4] lattice_0.22-6      tzdb_0.4.0          Rdpack_2.6.2       
+ [7] vctrs_0.6.5         tools_4.4.2         generics_0.1.3     
+[10] parallel_4.4.2      pkgconfig_2.0.3     data.table_1.16.4  
+[13] RColorBrewer_1.1-3  S7_0.2.0            RcppParallel_5.1.10
+[16] lifecycle_1.0.4     compiler_4.4.2      farver_2.1.2       
+[19] janitor_2.2.1       codetools_0.2-20    snakecase_0.11.1   
+[22] htmltools_0.5.8.1   yaml_2.3.10         pillar_1.10.1      
+[25] furrr_0.3.1         nloptr_2.1.1        MASS_7.3-61        
+[28] reformulas_0.4.0    boot_1.3-31         nlme_3.1-166       
+[31] parallelly_1.42.0   tidyselect_1.2.1    rvest_1.0.4        
+[34] digest_0.6.37       stringi_1.8.4       future_1.34.0      
+[37] listenv_0.9.1       splines_4.4.2       fastmap_1.2.0      
+[40] grid_4.4.2          cli_3.6.5           magrittr_2.0.3     
+[43] utf8_1.2.4          withr_3.0.2         timechange_0.3.0   
+[46] rmarkdown_2.29      httr_1.4.7          globals_0.16.3     
+[49] progressr_0.15.1    hms_1.1.3           evaluate_1.0.3     
+[52] rbibutils_2.3       rlang_1.1.6         Rcpp_1.0.14        
+[55] glue_1.8.0          xml2_1.3.6          rstudioapi_0.17.1  
+[58] minqa_1.2.8         jsonlite_1.8.9      R6_2.5.1           </code></pre>
+</div>
+</div>
+</details>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

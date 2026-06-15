@@ -1,0 +1,14 @@
+# Quarto cache
+*_cache/
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+
+# OS files
+.DS_Store
+
+# Temporary/log files
+*.log
+*.tmp

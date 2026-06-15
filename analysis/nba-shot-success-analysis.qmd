@@ -1,0 +1,497 @@
+---
+title: "NBA Shot Success Analysis"
+author: "Eddy Yoon"
+date: "2025-04-28"
+format:
+  html:
+    toc: true
+    code-fold: true
+    theme: cosmo
+  pdf: default
+execute:
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  cache = TRUE
+)
+
+library(hoopR)
+library(tidyverse)
+library(gridExtra)
+library(knitr)
+library(lme4)
+library(scales)
+```
+
+# Project Summary
+
+This project analyzes NBA shot success during the 2024--2025 season using play-by-play and player box-score data from the `hoopR` package. The analysis begins by identifying common made-shot types and comparing make rates across shot categories, then focuses on layups and jump shots as two high-volume shot groups.
+
+The main modeling goal is to evaluate which player-level and game-context variables are associated with made-shot probability. I compare standard logistic regression models with mixed-effects logistic regression models that include player-level random intercepts to account for repeated shots by the same players.
+
+# Introduction
+
+Shot selection is one of the most important parts of offensive efficiency in basketball. Different shot types have different levels of difficulty, and player ability, shot distance, time remaining, and game context may all influence whether a shot is made.
+
+This project focuses on two common NBA shot categories: layups and jump shots. Using 2024--2025 NBA play-by-play data, I analyze which variables are associated with shot success and whether accounting for player-level differences improves model fit.
+
+The main questions are:
+
+1. Which shot types account for the most made baskets?
+2. Which shot types have the highest make rates among commonly attempted shots?
+3. Which player and game-context variables are associated with layup and jump-shot success?
+4. Do mixed-effects logistic regression models improve fit compared with standard logistic regression models?
+
+# Data
+
+The analysis uses NBA play-by-play data from the 'hoopR' package for the season labeled 2025, corresponding to the 2024–2025 NBA season, including regular season and postseason games. Each row represents an in-game event, including shot attempts, fouls, substitutions, rebounds, and other play-by-play actions.
+
+Because this project focuses on shot success, I filtered the data to shooting plays only. I then created two broad shot categories based on the play description:
+
+- Layups: plays where `type_text` contains `"Layup"`
+- Jump shots: plays where `type_text` contains `"Jump Shot"`
+
+Player box-score data was joined to the shot-level data using game and player identifiers. This added player-level information such as field-goal percentage, three-point percentage, points scored, and starter status.
+
+```{r load-data}
+# 2025 refers to the 2024--2025 NBA season in hoopR data conventions.
+nba_season <- 2025
+
+nba_pbp <- hoopR::load_nba_pbp(seasons = nba_season)
+
+nba_pbp_shooting <- nba_pbp %>% 
+  filter(shooting_play == TRUE)
+
+shooting_layup_raw <- nba_pbp_shooting %>% 
+  filter(str_detect(type_text, regex("Layup", ignore_case = TRUE)))
+
+shooting_jumpshot <- nba_pbp_shooting %>% 
+  filter(str_detect(type_text, regex("Jump Shot", ignore_case = TRUE)))
+
+# Verify season coverage
+nba_pbp %>%
+  summarize(
+    seasons_loaded = paste(sort(unique(season)), collapse = ", "),
+    first_game_date = min(game_date, na.rm = TRUE),
+    last_game_date = max(game_date, na.rm = TRUE),
+    total_plays = n(),
+    total_games = n_distinct(game_id)
+  )
+```
+
+# Exploratory Data Analysis
+
+## Made-Shot Frequency
+
+The first chart shows the most common shot types among made baskets. This does **not** measure efficiency directly; instead, it identifies high-volume scoring outcomes. A shot type can appear often because it is attempted frequently, not necessarily because it has the highest success rate.
+
+```{r made-shot-frequency, fig.cap = "Top 10 shot descriptions among made shots in the 2024--2025 NBA play-by-play data. This chart identifies common scoring outcomes and motivates focusing on layups and jump shots for the shot-success models.", fig.width = 7, fig.height = 4}
+made_shot_counts <- nba_pbp_shooting %>% 
+  filter(scoring_play == TRUE) %>% 
+  count(type_text, sort = TRUE) %>% 
+  slice_head(n = 10)
+
+made_shot_counts %>% 
+  ggplot(aes(x = reorder(type_text, n), y = n)) +
+  geom_col(color = "black", fill = "dodgerblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Most Common Made Shot Types",
+    x = "Shot Type",
+    y = "Made Shots"
+  )
+```
+
+## Shot-Type Make Rate
+
+Made-shot count captures scoring volume. To compare efficiency, I calculated make rate as made shots divided by total attempts for each shot type. I filtered to shot types with at least 500 attempts to reduce small-sample noise.
+
+```{r shot-type-efficiency, fig.cap = "Highest make rates among shot types with at least 500 attempts. Make rate is calculated as made shots divided by total attempts.", fig.width = 7, fig.height = 4}
+shot_efficiency <- nba_pbp_shooting %>%
+  group_by(type_text) %>%
+  summarize(
+    attempts = n(),
+    makes = sum(scoring_play == TRUE, na.rm = TRUE),
+    make_rate = makes / attempts,
+    .groups = "drop"
+  ) %>%
+  filter(attempts >= 500) %>%
+  arrange(desc(make_rate))
+
+shot_efficiency %>%
+  slice_head(n = 10) %>%
+  ggplot(aes(x = reorder(type_text, make_rate), y = make_rate)) +
+  geom_col(color = "black", fill = "dodgerblue") +
+  coord_flip() +
+  theme_minimal() +
+  scale_y_continuous(labels = percent_format()) +
+  labs(
+    title = "Highest Make Rates by Shot Type",
+    x = "Shot Type",
+    y = "Make Rate"
+  )
+```
+
+## Layup Location Filtering
+
+Some plays labeled as layups appeared far from the basket based on their coordinate values. To reduce likely misclassified or unusual layup records, I filtered layup attempts to retain shots located near the basket area in the coordinate system used by the play-by-play data. In this coordinate system, near-basket layups appear near the far left and right ends of the x-axis, so the filter keeps attempts with large absolute x-coordinate values and small y-coordinate values.
+
+```{r layup-location-filter, fig.cap = "Layup shot locations before and after filtering to retain attempts near the basket.", fig.width = 7, fig.height = 3.5}
+h1 <- ggplot(shooting_layup_raw, aes(x = coordinate_x, y = coordinate_y)) +
+  geom_bin2d(bins = 14) +
+  theme_minimal() +
+  labs(
+    x = "Court x-coordinate",
+    y = "Court y-coordinate",
+    title = "Layup Attempts Before Filtering"
+  )
+
+shooting_layup <- shooting_layup_raw %>%
+  filter(abs(coordinate_x) > 30, abs(coordinate_y) < 7.5)
+
+h2 <- ggplot(shooting_layup, aes(x = coordinate_x, y = coordinate_y)) +
+  geom_bin2d(bins = 14) +
+  theme_minimal() +
+  labs(
+    x = "Court x-coordinate",
+    y = "Court y-coordinate",
+    title = "Layup Attempts After Filtering"
+  )
+
+grid.arrange(h1, h2, ncol = 2)
+```
+
+## Make/Miss Distribution
+
+The modeling outcome is whether a shot was made (`scoring_play = TRUE`) or missed (`scoring_play = FALSE`). The chart below shows the make/miss distribution for the layup and jump-shot datasets.
+
+```{r make-miss-distribution, fig.cap = "Distribution of made and missed attempts for layups and jump shots. Layups show a higher make rate, while jump shots have a larger volume of attempts.", fig.width = 7, fig.height = 3.5}
+d1 <- shooting_layup %>% 
+  ggplot(aes(x = scoring_play)) +
+  geom_bar(color = "black", fill = "dodgerblue") +
+  theme_minimal() +
+  labs(
+    title = "Layups",
+    x = "Made Shot",
+    y = "Count"
+  )
+
+d2 <- shooting_jumpshot %>% 
+  ggplot(aes(x = scoring_play)) +
+  geom_bar(color = "black", fill = "dodgerblue") +
+  theme_minimal() +
+  labs(
+    title = "Jump Shots",
+    x = "Made Shot",
+    y = "Count"
+  )
+
+grid.arrange(d1, d2, ncol = 2)
+```
+
+# Methods
+
+The outcome variable for both models is `scoring_play`, a binary indicator of whether the shot was made. Because the same players take many shots, observations are not fully independent. To account for repeated shots by the same players, I use mixed-effects logistic regression models with player-level random intercepts.
+
+For each shot type, I compare:
+
+1. A standard logistic regression model with fixed effects only.
+2. A mixed-effects logistic regression model with the same fixed effects plus a player-level random intercept.
+
+AIC is used to compare relative model fit. Lower AIC indicates a better balance between model fit and model complexity. AIC is useful for comparing models fit to the same outcome and data, but it is not a substitute for out-of-sample validation.
+
+# Model Preparation
+
+```{r prepare-model-data}
+box_scores <- hoopR::load_nba_player_box(nba_season)
+
+box_required_cols <- c(
+  "game_id",
+  "athlete_id",
+  "field_goals_made",
+  "field_goals_attempted",
+  "three_point_field_goals_made",
+  "three_point_field_goals_attempted",
+  "points",
+  "starter"
+)
+
+stopifnot(all(box_required_cols %in% names(box_scores)))
+
+box_score_small <- box_scores %>%
+  select(
+    game_id,
+    athlete_id,
+    minutes,
+    field_goals_made,
+    field_goals_attempted,
+    three_point_field_goals_made,
+    three_point_field_goals_attempted,
+    points,
+    plus_minus,
+    starter
+  )
+
+layup_model_data <- shooting_layup %>%
+  left_join(
+    box_score_small,
+    by = c("game_id" = "game_id", "athlete_id_1" = "athlete_id")
+  ) %>%
+  mutate(
+    shooting_distance = sqrt(coordinate_x^2 + coordinate_y^2),
+    field_goal_pct = if_else(field_goals_attempted > 0, field_goals_made / field_goals_attempted, NA_real_),
+    three_point_pct = if_else(three_point_field_goals_attempted > 0, three_point_field_goals_made / three_point_field_goals_attempted, NA_real_)
+  ) %>%
+  drop_na(
+    scoring_play,
+    shooting_distance,
+    start_quarter_seconds_remaining,
+    starter,
+    field_goal_pct,
+    points,
+    period_number,
+    athlete_id_1
+  )
+
+jumpshot_model_data <- shooting_jumpshot %>%
+  left_join(
+    box_score_small,
+    by = c("game_id" = "game_id", "athlete_id_1" = "athlete_id")
+  ) %>%
+  mutate(
+    shooting_distance = sqrt(coordinate_x^2 + coordinate_y^2),
+    field_goal_pct = if_else(field_goals_attempted > 0, field_goals_made / field_goals_attempted, NA_real_),
+    three_point_pct = if_else(three_point_field_goals_attempted > 0, three_point_field_goals_made / three_point_field_goals_attempted, NA_real_)
+  ) %>%
+  drop_na(
+    scoring_play,
+    shooting_distance,
+    start_quarter_seconds_remaining,
+    starter,
+    field_goal_pct,
+    three_point_pct,
+    points,
+    period_number,
+    athlete_id_1
+  )
+```
+
+```{r helper-functions}
+create_fixed_effect_table <- function(model) {
+  summary(model)$coefficients %>%
+    as.data.frame() %>%
+    rownames_to_column("Term") %>%
+    rename(
+      Estimate = Estimate,
+      Std.Error = `Std. Error`,
+      Z.value = `z value`,
+      P.value = `Pr(>|z|)`
+    ) %>%
+    mutate(
+      CI.lower = Estimate - 1.96 * Std.Error,
+      CI.upper = Estimate + 1.96 * Std.Error,
+      Odds_Ratio = exp(Estimate),
+      OR_CI_lower = exp(CI.lower),
+      OR_CI_upper = exp(CI.upper)
+    )
+}
+```
+
+# Results
+
+## Layup Model
+
+The layup model uses shooting distance, time remaining in the quarter, starter status, field-goal percentage, points scored, and period number as fixed effects. The mixed-effects model adds a player-level random intercept.
+
+```{r layup-models}
+layup_model_mixed <- glmer(
+  scoring_play ~ scale(shooting_distance) + scale(start_quarter_seconds_remaining) +
+    starter + scale(field_goal_pct) + scale(points) + factor(period_number) +
+    (1 | athlete_id_1),
+  data = layup_model_data,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa")
+)
+
+layup_model_plain <- glm(
+  scoring_play ~ scale(shooting_distance) + scale(start_quarter_seconds_remaining) +
+    starter + scale(field_goal_pct) + scale(points) + factor(period_number),
+  data = layup_model_data,
+  family = binomial
+)
+```
+
+```{r layup-aic-table}
+kable(
+  AIC(layup_model_mixed, layup_model_plain),
+  caption = "AIC comparison between the layup mixed-effects logistic regression model and standard logistic regression model"
+)
+```
+
+The mixed-effects model has lower AIC than the standard logistic regression model, suggesting that accounting for player-level baseline shooting ability improves relative model fit for layups.
+
+```{r layup-fixed-effects-table}
+layup_fe_table <- create_fixed_effect_table(layup_model_mixed)
+
+kable(
+  layup_fe_table,
+  digits = 3,
+  col.names = c(
+    "Term", "Estimate", "Std. Error", "Z value", "P value",
+    "CI lower", "CI upper", "Odds Ratio", "OR CI lower", "OR CI upper"
+  ),
+  caption = "Fixed-effect estimates and odds ratios for the layup mixed-effects model"
+)
+```
+
+The fixed-effect estimates show which variables are associated with layup success after accounting for player-level baseline differences. Odds ratios above 1 indicate higher odds of a made layup, while odds ratios below 1 indicate lower odds.
+
+Shooting distance has a positive association with layup success in the filtered near-basket layup sample. This result should be interpreted carefully. It may reflect the coordinate system, the filtering rule, player selection effects, or differences in how layup attempts are recorded. Because this is observational play-by-play data, the coefficient should be interpreted as an association rather than evidence that longer layups are inherently easier.
+
+Field-goal percentage is also positively associated with layup success, which is consistent with the idea that more efficient players are more likely to convert shot attempts. Period indicators are less consistent, suggesting that quarter number alone is not the main driver of layup success after accounting for player and context variables.
+
+```{r layup-random-effects, fig.cap = "Distribution of player-level random intercepts from the layup mixed-effects model. Positive values indicate players with higher baseline layup success after accounting for model predictors.", fig.width = 5, fig.height = 4}
+layup_random_effects <- ranef(layup_model_mixed)$athlete_id_1 %>%
+  as.data.frame() %>%
+  rownames_to_column("athlete_id_1") %>%
+  rename(Random_Intercept = `(Intercept)`)
+
+layup_random_effects %>%
+  ggplot(aes(x = Random_Intercept)) +
+  geom_histogram(bins = 30, fill = "darkorange", color = "white") +
+  theme_minimal() +
+  labs(
+    title = "Player Random Intercepts: Layups",
+    x = "Random Intercept (log-odds adjustment)",
+    y = "Number of Players"
+  )
+```
+
+The random-intercept distribution shows that player-level differences remain even after accounting for shooting distance, timing, starter status, field-goal percentage, points, and period number. This supports the use of a mixed-effects model rather than treating every shot attempt as fully independent.
+
+## Jump-Shot Model
+
+The jump-shot model uses shooting distance, time remaining in the quarter, starter status, field-goal percentage, three-point percentage, points scored, and period number as fixed effects. The mixed-effects model adds a player-level random intercept.
+
+```{r jumpshot-models}
+jumpshot_model_mixed <- glmer(
+  scoring_play ~ scale(shooting_distance) + scale(start_quarter_seconds_remaining) +
+    starter + scale(field_goal_pct) + scale(three_point_pct) +
+    scale(points) + factor(period_number) +
+    (1 | athlete_id_1),
+  data = jumpshot_model_data,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa")
+)
+
+jumpshot_model_plain <- glm(
+  scoring_play ~ scale(shooting_distance) + scale(start_quarter_seconds_remaining) +
+    starter + scale(field_goal_pct) + scale(three_point_pct) +
+    scale(points) + factor(period_number),
+  data = jumpshot_model_data,
+  family = binomial
+)
+```
+
+```{r jumpshot-aic-table}
+kable(
+  AIC(jumpshot_model_mixed, jumpshot_model_plain),
+  caption = "AIC comparison between the jump-shot mixed-effects logistic regression model and standard logistic regression model"
+)
+```
+
+The mixed-effects model has lower AIC than the standard logistic regression model, suggesting that accounting for player-level baseline shooting ability improves relative model fit for jump shots.
+
+```{r jumpshot-fixed-effects-table}
+jumpshot_fe_table <- create_fixed_effect_table(jumpshot_model_mixed)
+
+kable(
+  jumpshot_fe_table,
+  digits = 3,
+  col.names = c(
+    "Term", "Estimate", "Std. Error", "Z value", "P value",
+    "CI lower", "CI upper", "Odds Ratio", "OR CI lower", "OR CI upper"
+  ),
+  caption = "Fixed-effect estimates and odds ratios for the jump-shot mixed-effects model"
+)
+```
+
+Several variables are associated with jump-shot success. Player efficiency metrics, including field-goal percentage and three-point percentage, are expected to be important because they capture shooting ability. Game-context variables such as shooting distance, time remaining in the quarter, and period number help describe the quality and context of shot attempts.
+
+As with the layup model, these estimates should be interpreted as associations rather than causal effects. For example, a positive coefficient for shooting distance does not necessarily mean that longer shots are easier. It may reflect shot selection, openness, player skill, or other unobserved factors that are not included in the model.
+
+```{r jumpshot-random-effects, fig.cap = "Distribution of player-level random intercepts from the jump-shot mixed-effects model. Positive values indicate players with higher baseline jump-shot success after accounting for model predictors.", fig.width = 5, fig.height = 4}
+jumpshot_random_effects <- ranef(jumpshot_model_mixed)$athlete_id_1 %>%
+  as.data.frame() %>%
+  rownames_to_column("athlete_id_1") %>%
+  rename(Random_Intercept = `(Intercept)`)
+
+jumpshot_random_effects %>%
+  ggplot(aes(x = Random_Intercept)) +
+  geom_histogram(bins = 30, fill = "darkorange", color = "white") +
+  theme_minimal() +
+  labs(
+    title = "Player Random Intercepts: Jump Shots",
+    x = "Random Intercept (log-odds adjustment)",
+    y = "Number of Players"
+  )
+```
+
+The random-intercept distribution shows that individual players differ in baseline jump-shot success even after accounting for observable predictors. This supports the modeling choice to include player-level random effects.
+
+# Discussion
+
+The mixed-effects models had lower AIC values than the corresponding standard logistic regression models for both layups and jump shots. This suggests that accounting for player-level baseline shooting ability improves model fit.
+
+The exploratory analysis also shows why it is important to distinguish between made-shot frequency and make rate. Made-shot frequency captures scoring volume, while make rate provides a simple measure of shot-conversion efficiency. Both are useful, but they answer different questions. This project uses made-shot frequency to identify common scoring outcomes, make rate to compare shot-type efficiency, and logistic mixed-effects modeling to study make probability for layups and jump shots.
+
+For both shot categories, player efficiency metrics and game-context variables were associated with shot success. The player-level random intercepts suggest that individual shooting ability remains relevant even after controlling for observable shot and context variables.
+
+These results should be interpreted as associations, not causal effects. The analysis does not prove that changing one predictor would directly cause shot success to increase or decrease. Instead, it identifies patterns in observed NBA play-by-play and box-score data.
+
+# Limitations
+
+- The model does not include defender proximity, contest level, or defender identity.
+- The model does not include shot-clock time, assist status, play type, or possession context.
+- Shot categories are broad and combine different subtypes, such as pull-up jumpers, fadeaways, driving layups, and cutting layups.
+- The analysis uses one NBA season, so results may not generalize across seasons.
+- AIC compares relative model fit but does not measure true out-of-sample predictive performance.
+- The analysis is observational, so coefficients should be interpreted as associations rather than causal effects.
+
+# Future Work
+
+Future versions of this project could:
+
+- Add train/test evaluation or cross-validation to measure predictive performance.
+- Include defender and shot-contest variables if tracking data is available.
+- Compare results across multiple NBA seasons.
+- Separate jump shots and layups into more specific shot subtypes.
+- Build an interactive dashboard showing shot success by player, shot type, and court location.
+
+# Conclusion
+
+This project shows that NBA shot success is shaped by both player-level ability and game-context factors. Mixed-effects logistic regression improved relative model fit for both layups and jump shots, supporting the idea that repeated shots by the same players should not be treated as fully independent. The analysis also highlights the importance of distinguishing between scoring volume and efficiency when evaluating shot types.
+
+For a basketball operations or analytics setting, this type of model could be extended with tracking data, defender information, shot-clock context, and multi-season data to better evaluate shot quality and player decision-making.
+
+# Reproducibility
+
+The analysis was rendered using the following R session information.
+
+<details>
+<summary>Show session information</summary>
+
+```{r session-info}
+#| echo: false
+sessionInfo()
+```
+
+</details>
